@@ -49,7 +49,7 @@ const char *ssid_sta = "SKIB4";
 const char *password_sta = "marnavfablab";
 unsigned int localUdpPort = 8081;					  // local port
 char incomingPacket[255];							  // buffer for incoming packets
-char replyPacket[] = "Hi there! Got the message :-)"; // a reply string to send back
+//char replyPacket[] = "Hi there! Got the message :-)"; // a reply string to send back
 
 // Namespaces
 WiFiUDP Udp;
@@ -560,7 +560,10 @@ bool sendRorUdlaeg()
 	Serial.printf(" udl: %i ", udlg);
 	char cstr[16];
 	sprintf(cstr, "a%d", num); // gps.course.isValid() ? gps.course.deg() : NAN,gps.speed.isValid() ? gps.speed.kmph() : NAN);
-	// client1.send(cstr);
+	 // sender til ESP-lokal (static IP)
+    Udp.beginPacket("192.168.4.123", 4210);
+    Udp.write(cstr);
+    Udp.endPacket();
 	sendRorData(num, afstandWP, sp_kurs, ror);
 
 	return true;
@@ -579,6 +582,10 @@ void sendRorData(int num, float afstandWP, float sp_kurs, float ror)
 	Udp.beginPacket("192.168.137.1", 8084);
 	Udp.write(buffer);
 	Udp.endPacket();
+	//   // sender til ESP-lokal (static IP)
+    // Udp.beginPacket("192.168.4.123", 4210);
+    // Udp.write(buffer);
+    // Udp.endPacket();
 }
 float formatKurs(float tal, int precision)
 {
@@ -618,11 +625,11 @@ void sendGPSdata(TinyGPSPlus gps)
 	{
 		brGps = gps.location.lat();
 		lgGps = gps.location.lng();
-		tiGps = gps.time.hour() * 3600 + gps.time.minute() * 60 + gps.time.second() + gps.time.centisecond() / 100;
+		tiGps = gps.time.hour() * 3600 + gps.time.minute() * 60 + gps.time.second() ;//+ gps.time.centisecond() / 100;
 		char buffer[60];
-		sprintf(buffer, "gps,%f,%f,%4.1f,%d,%.1f,%.1f,%i",
-			brGps * 1000000,
-			lgGps * 1000000,
+		sprintf(buffer, "gps,%.8f,%.8f,%.1f,%d,%.1f,%.1f,%i",
+			brGps,
+			lgGps,
 			gps.hdop.hdop(),
 			gps.satellites.value(),
 			gps.course.deg(),
