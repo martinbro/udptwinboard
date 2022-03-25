@@ -44,8 +44,12 @@ IPAddress local_IP(192, 168, 4, 122); // 192.168.137.188:4210
 IPAddress gateway(192, 168, 4, 121);
 IPAddress subnet(255, 255, 255, 0);
 
+uint16_t PORT = 4110 ;//SKIB1
+// uint16_t PORT = 4210 ;//SKIB2
+// uint16_t PORT = 4310 ;//SKIB3
+// uint16_t PORT = 4410 ;//SKIB4
 // Station
-const char *ssid_sta = "SKIB4";
+const char *ssid_sta = "SKIB1";
 const char *password_sta = "marnavfablab";
 unsigned int localUdpPort = 8081;					  // local port
 char incomingPacket[255];							  // buffer for incoming packets
@@ -305,9 +309,22 @@ void process(char *dat, int len)
 		case 'i': // Ror kalibrering
 			ROR_KALIB = floatVal;
 			break;
-			// case 'j'://Speed auto
-			// 	client1.send(floatVal.substring(1, floatVal.length()));
-			// 	break;
+		case 'j'://Speed auto
+			char fstr[16];
+			sprintf(fstr, "b%d", (int)floatVal); // gps.course.isValid() ? gps.course.deg() : NAN,gps.speed.isValid() ? gps.speed.kmph() : NAN);
+			// sender til ESP-lokal (static IP)
+				Serial.print("FSTR: ");
+				Serial.println(fstr);
+				Serial.print("floatVal: ");
+				Serial.println(floatVal);
+			Udp.beginPacket("192.168.4.123", PORT);
+				Udp.write(fstr);
+				delay(5);
+				Udp.write(fstr);
+				delay(5);
+				Udp.write(fstr);
+			Udp.endPacket();
+		break;
 
 		default:
 			Serial.println("FEJL i modtagelse");
@@ -561,7 +578,7 @@ bool sendRorUdlaeg()
 	char cstr[16];
 	sprintf(cstr, "a%d", num); // gps.course.isValid() ? gps.course.deg() : NAN,gps.speed.isValid() ? gps.speed.kmph() : NAN);
 	 // sender til ESP-lokal (static IP)
-    Udp.beginPacket("192.168.4.123", 4210);
+    Udp.beginPacket("192.168.4.123", PORT);
     Udp.write(cstr);
     Udp.endPacket();
 	sendRorData(num, afstandWP, sp_kurs, ror);
@@ -582,10 +599,7 @@ void sendRorData(int num, float afstandWP, float sp_kurs, float ror)
 	Udp.beginPacket("192.168.137.1", 8084);
 	Udp.write(buffer);
 	Udp.endPacket();
-	//   // sender til ESP-lokal (static IP)
-    // Udp.beginPacket("192.168.4.123", 4210);
-    // Udp.write(buffer);
-    // Udp.endPacket();
+
 }
 float formatKurs(float tal, int precision)
 {
