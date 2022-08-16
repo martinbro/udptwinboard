@@ -19,13 +19,12 @@
 		WiFi or to the websockets server. For full example you might want
 		to try the example named "ESP8266-Client".
 	Hardware:
-				An ESP8266 board.
+				ESP8266 board.
 				GPS
 				BNO055
 				Servo (rudder)
 	Created  : 2021
 	Author   : Martin Bro Mikkelsen
-
 *****************************************************************************************************************************/
 
 #include <ESP8266WiFi.h>
@@ -44,20 +43,19 @@ IPAddress local_IP(192, 168, 4, 122); // 192.168.137.188:4210
 IPAddress gateway(192, 168, 4, 121);
 IPAddress subnet(255, 255, 255, 0);
 
-uint16_t PORT = 4110 ;//SKIB1
-// uint16_t PORT = 4210 ;//SKIB2
-// uint16_t PORT = 4310 ;//SKIB3
+// uint16_t PORT = 4110 ;//SKIB1
+uint16_t PORT = 4210 ;//SKIB2
+//uint16_t PORT = 4310 ;//SKIB3
 // uint16_t PORT = 4410 ;//SKIB4
+
 // Station
-const char *ssid_sta = "SKIB1";
+const char *ssid_sta = "SKIB2";
 const char *password_sta = "marnavfablab";
 unsigned int localUdpPort = 8081;					  // local port
 char incomingPacket[255];							  // buffer for incoming packets
-//char replyPacket[] = "Hi there! Got the message :-)"; // a reply string to send back
 
 // Namespaces
 WiFiUDP Udp;
-
 // static const int RORpwm = 14; //D5 som udlæg output
 // char PORT_NR[5] = "/ws1";
 static const uint8_t SCL_gyro = 5, SDA_gyro = 4; // Gyro: D2 (SCL), D1(SDA)
@@ -470,6 +468,7 @@ bool getBNO055val()
 
 	return true;
 }
+
 void getKalibrering()
 {
 	uint8_t systemC, gyroC, accelC, magC = 0;
@@ -478,6 +477,7 @@ void getKalibrering()
 
 	kalibVal = gyroC / 1.0 * 100 + magC / 1.0 * 10 + accelC / 1.0; // systemC
 }
+
 bool sendRorUdlaeg()
 {
 	// KUN HVIS GPS SIGNALER
