@@ -19,13 +19,12 @@
 		WiFi or to the websockets server. For full example you might want
 		to try the example named "ESP8266-Client".
 	Hardware:
-				An ESP8266 board.
+				ESP8266 board.
 				GPS
 				BNO055
 				Servo (rudder)
 	Created  : 2021
 	Author   : Martin Bro Mikkelsen
-
 *****************************************************************************************************************************/
 
 #include <ESP8266WiFi.h>
@@ -44,16 +43,19 @@ IPAddress local_IP(192, 168, 4, 122); // 192.168.137.188:4210
 IPAddress gateway(192, 168, 4, 121);
 IPAddress subnet(255, 255, 255, 0);
 
+// uint16_t PORT = 4110 ;//SKIB1
+uint16_t PORT = 4210 ;//SKIB2
+//uint16_t PORT = 4310 ;//SKIB3
+// uint16_t PORT = 4410 ;//SKIB4
+
 // Station
-const char *ssid_sta = "SKIB4";
+const char *ssid_sta = "SKIB2";
 const char *password_sta = "marnavfablab";
 unsigned int localUdpPort = 8081;					  // local port
 char incomingPacket[255];							  // buffer for incoming packets
-char replyPacket[] = "Hi there! Got the message :-)"; // a reply string to send back
 
 // Namespaces
 WiFiUDP Udp;
-
 // static const int RORpwm = 14; //D5 som udlæg output
 // char PORT_NR[5] = "/ws1";
 static const uint8_t SCL_gyro = 5, SDA_gyro = 4; // Gyro: D2 (SCL), D1(SDA)
@@ -89,13 +91,13 @@ uint16_t kalibVal = 0; // status for kalibreret værdi (gyro)
 
 float lg[] = {-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0}; // måske flytte over på dea anden chip
 float br[] = {-1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0}; // måske flytte over på dea anden chip
-float r = 5.0;							 // Succefuld afstand til way point - måske flytte over på dea anden chip
+float r = 5.0;															   // Succefuld afstand til way point - måske flytte over på dea anden chip
 uint8_t antalWP = 0;													   // måske flytte over på dea anden chip
 uint8_t activeWP = 0;													   // måske flytte over på dea anden chip
 
-float brGps = -1.0;
-float lgGps = -1.0;
-float tiGps = -1.0;
+double brGps = -1.0;
+double lgGps = -1.0;
+double tiGps = -1.0;
 
 float e = 0.0;
 float sum_e = 0.0;
@@ -158,7 +160,6 @@ unsigned long tWiFi = millis();
 
 void loop()
 {
-
 	if (updated)
 	{ // begrænser netværkstrafik
 		sendPing();
@@ -192,10 +193,9 @@ void loop()
 						Serial.println("SoftwareSerial overflow!");
 					}
 					i = 0;
-					brGps = gps.location.lat();
-					lgGps = gps.location.lng();
-					tiGps = gps.time.hour() * 3600 + gps.time.minute() * 60 + gps.time.second() + gps.time.centisecond() / 100;
-
+					// brGps = gps.location.lat();
+					// lgGps = gps.location.lng();
+					// tiGps = gps.time.hour() * 3600 + gps.time.minute() * 60 + gps.time.second() + gps.time.centisecond() / 100;
 					sendGPSdata(gps);
 				}
 			}
@@ -224,8 +224,6 @@ void process(char *dat, int len)
 	char nr = dat[4];
 	charVal = nr;
 	// Serial.printf("process linje 228: %s %i \n", dat, len);
-	// Serial.print(" ,nr: ");
-	// Serial.println(nr);
 
 	int startBit = 5;
 
@@ -266,20 +264,23 @@ void process(char *dat, int len)
 
 					br[pos] = atof(&dat[startBit]);
 					pos++;
+					antalWP = pos;
 					startBit = i + 1;
-					for (int i = 0; i < 8; i++)
-					{
-						Serial.printf("lg[i]%10f br[i]%10f",i, lg[i],i,br[i]);
-					}
 				}
-				// else
-					//Serial.printf("%c", dat[i]);
 			}
+			for (int i = antalWP; i < 10; i++)
+			{
+				lg[i] = -1;
+				br[i] = -1;
+			}
+
 			break;
 
 		case 'c': // K-val
-			if (floatVal < 0.0) K = 0.0;
-			if (floatVal > 1.0) K = 1.0;
+			if (floatVal < 0.0)
+				K = 0.0;
+			if (floatVal > 1.0)
+				K = 1.0;
 			K = floatVal;
 			break;
 
@@ -306,9 +307,22 @@ void process(char *dat, int len)
 		case 'i': // Ror kalibrering
 			ROR_KALIB = floatVal;
 			break;
-			// case 'j'://Speed auto
-			// 	client1.send(floatVal.substring(1, floatVal.length()));
-			// 	break;
+		case 'j'://Speed auto
+			char fstr[16];
+			sprintf(fstr, "b%d", (int)floatVal); // gps.course.isValid() ? gps.course.deg() : NAN,gps.speed.isValid() ? gps.speed.kmph() : NAN);
+			// sender til ESP-lokal (static IP)
+				Serial.print("FSTR: ");
+				Serial.println(fstr);
+				Serial.print("floatVal: ");
+				Serial.println(floatVal);
+			Udp.beginPacket("192.168.4.123", PORT);
+				Udp.write(fstr);
+				delay(5);
+				Udp.write(fstr);
+				delay(5);
+				Udp.write(fstr);
+			Udp.endPacket();
+		break;
 
 		default:
 			Serial.println("FEJL i modtagelse");
@@ -321,12 +335,27 @@ void process(char *dat, int len)
 
 void sendPing()
 {
-	char buffer[20];
-	sprintf(buffer, "pin,%c%8f", charVal, floatVal);
-	// client.send(buffer);
-	Udp.beginPacket("192.168.137.1", 8083); // 192.168.137.1:8083
-	Udp.write(buffer);
-	Udp.endPacket();
+	if (charVal == 'a')
+	{
+		char buffer[40];
+		for (int i = 0; i < 10; i++)
+		{
+			// Serial.printf("lg[i]%10f br[i]%10f", i, lg[i], i, br[i]);
+			sprintf(buffer, "pin,%c(%i)%11f:%11f", charVal, i, lg[i], br[i]);
+			Udp.beginPacket("192.168.137.1", 8083); // 192.168.137.1:8083
+			Udp.write(buffer);
+			Udp.endPacket();
+			delay(20);
+		}
+	}
+	else
+	{
+		char buffer[20];
+		sprintf(buffer, "pin,%c%8f", charVal, floatVal);
+		Udp.beginPacket("192.168.137.1", 8083); // 192.168.137.1:8083
+		Udp.write(buffer);
+		Udp.endPacket();
+	}
 }
 //////////////////////Kompas///////////////////////////////
 void initBNO055(Adafruit_BNO055 bno)
@@ -345,7 +374,6 @@ void initBNO055(Adafruit_BNO055 bno)
 	bno.setExtCrystalUse(true); /* Bruger microprocessorens  clock */
 	bno.printSensorDetails();
 }
-
 bool getBNO055val()
 {
 	/* Get a new sensor vector*/
@@ -440,15 +468,16 @@ bool getBNO055val()
 
 	return true;
 }
+
 void getKalibrering()
 {
-	// NB Kalibrering ustabil - derfor kommenteret ud!
 	uint8_t systemC, gyroC, accelC, magC = 0;
 	// Auto kalibreringens status: (integer) 0=lavest niveau (forkast data), 3=højste niveau (fuldt kalibreret data)
 	bno.getCalibration(&systemC, &gyroC, &accelC, &magC);
 
 	kalibVal = gyroC / 1.0 * 100 + magC / 1.0 * 10 + accelC / 1.0; // systemC
 }
+
 bool sendRorUdlaeg()
 {
 	// KUN HVIS GPS SIGNALER
@@ -473,13 +502,18 @@ bool sendRorUdlaeg()
 	//  float dE += -sin(-kurs*PI/180)*cos(brGps)*dt;
 	//  Serial.print("Bestik: "); Serial.print(dN); Serial.print(", "); Serial.println(dE);
 
-
 	float br_forandring = br[activeWP] - brGps;
 	float afvigning = (lg[activeWP] - lgGps) * cos(brGps * PI / 180); // bruger bredde i stedet for middelbredde
 
 	float sp_kurs = atan2(afvigning, br_forandring) * 180 / PI;
 	float afstandWP = sqrt(br_forandring * br_forandring + afvigning * afvigning) * 60 * 1852;
 
+	float xte = 0;
+	if (activeWP > 0)
+	{ // sejler på et ben
+		int affWP = activeWP - 1;
+		float br_forandring1 = br[activeWP] - br[affWP];
+	}
 
 	if (afstandWP < r)
 	{
@@ -515,7 +549,6 @@ bool sendRorUdlaeg()
 		{
 			sum_e += -10.0 * dt / 100.0;
 		}
-
 	}
 	else
 	{
@@ -541,10 +574,13 @@ bool sendRorUdlaeg()
 
 	int udlg = int(round(ror));
 	int num = int(round(udlg + ROR_KALIB));
-	Serial.printf(" udl: %i ",udlg);
+	Serial.printf(" udl: %i ", udlg);
 	char cstr[16];
 	sprintf(cstr, "a%d", num); // gps.course.isValid() ? gps.course.deg() : NAN,gps.speed.isValid() ? gps.speed.kmph() : NAN);
-	// client1.send(cstr);
+	 // sender til ESP-lokal (static IP)
+    Udp.beginPacket("192.168.4.123", PORT);
+    Udp.write(cstr);
+    Udp.endPacket();
 	sendRorData(num, afstandWP, sp_kurs, ror);
 
 	return true;
@@ -563,6 +599,7 @@ void sendRorData(int num, float afstandWP, float sp_kurs, float ror)
 	Udp.beginPacket("192.168.137.1", 8084);
 	Udp.write(buffer);
 	Udp.endPacket();
+
 }
 float formatKurs(float tal, int precision)
 {
@@ -577,7 +614,6 @@ float formatKurs(float tal, int precision)
 	}
 	return f;
 }
-
 void sendBNOdata()
 {
 	// værdier sendes som semikolonsepereret streng - csv-stil
@@ -599,25 +635,29 @@ void sendBNOdata()
 ////////////////////// GPS ////////////////////////////////
 void sendGPSdata(TinyGPSPlus gps)
 {
-	if (gps.location.isValid())
+	if (gps.location.isValid() && gps.location.isUpdated())
 	{
-		char buffer[40];
-		sprintf(buffer, "gps,%d,%d,%4.1f,%d,%d,%d",
-				int(gps.location.lat() * 1000000),
-				int(gps.location.lng() * 1000000),
-				gps.hdop.hdop(),
-				gps.satellites.value(),
-				ESP.getHeapFragmentation(),
-				ESP.getFreeHeap()); // gps.course.isValid() ? gps.course.deg() : NAN,gps.speed.isValid() ? gps.speed.kmph() : NAN);
-									//  client.send(buffer);
+		brGps = gps.location.lat();
+		lgGps = gps.location.lng();
+		tiGps = gps.time.hour() * 3600 + gps.time.minute() * 60 + gps.time.second() ;//+ gps.time.centisecond() / 100;
+		char buffer[60];
+		sprintf(buffer, "gps,%.8f,%.8f,%.1f,%d,%.1f,%.1f,%i",
+			brGps,
+			lgGps,
+			gps.hdop.hdop(),
+			gps.satellites.value(),
+			gps.course.deg(),
+			gps.speed.mps(),
+			int(tiGps));
+		Serial.println(buffer);
 		Udp.beginPacket("192.168.137.1", 8082);
 		Udp.write(buffer);
 		Udp.endPacket();
 	}
 }
 ////////////////////// WiFi + websoket2 //////////////////////////
-bool initConnectToWifi()
-{
+//bool initConnectToWifi()
+//{
 	// // ESP8266 Connect to wifi
 
 	// delay(5000);
@@ -641,5 +681,4 @@ bool initConnectToWifi()
 	// }
 	// WiFi.setAutoReconnect(true);
 	// WiFi.persistent(true);
-}
-
+//}
