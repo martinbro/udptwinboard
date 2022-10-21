@@ -120,8 +120,8 @@ void setup()
 	{
 		;
 	}
-	WiFi.mode(WIFI_STA);
-
+	//Forbinder til GO-server i land
+	WiFi.mode(WIFI_STA);//WiFi.mode(WIFI_AP_STA) //burde udskiftes?
 	Serial.printf("Connecting to %s ", ssid_sta);
 	// WiFi.config();
 	WiFi.begin(ssid_sta, password_sta);
@@ -131,7 +131,7 @@ void setup()
 		Serial.println("WiFi Failed");
 		// delay(500);
 	}
-
+	//Kontakt til andre ESP'er
 	Serial.print("Setting soft-AP configuration ... ");
 	Serial.println(WiFi.softAPConfig(local_IP, gateway, subnet) ? "Ready" : "Failed!");
 
@@ -148,7 +148,7 @@ void setup()
 	Serial.println("HTTP server started");
 
 	Udp.begin(localUdpPort); // lytter på port 8081
-	Udp.begin(4210);		 // lytter på port 4210
+	Udp.begin(PORT);		 // lytter på port 4210    *********************TROR DEN SKAL SLETTES!!!!!!!!
 
 	ss.begin(GPSBaud);
 	initBNO055(bno);
