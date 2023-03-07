@@ -162,7 +162,7 @@ void loop()
 {
 	if (updated)
 	{ // begrænser netværkstrafik
-		sendPing();
+		sendEkko();
 		updated = false;
 	}
 
@@ -178,7 +178,7 @@ void loop()
 			Serial.println("Rorudlæg send");
 	}
 
-	while (ss.available() > 0)
+	while (ss.available() > 0)//ss: software serial - dvs læser fra Serial Port
 	{
 		if (gps.encode(ss.read()))
 		{
@@ -239,7 +239,7 @@ void process(char *dat, int len)
 		int startnr = 1; // bruges i case a
 		int midt = 0;	 // bruges i case a
 		int pos_nr = 0;	 // bruges i case a
-		updated = true;
+
 		int pos = 0;
 		boolean skift = false;
 		switch (nr)
@@ -273,7 +273,7 @@ void process(char *dat, int len)
 				lg[i] = -1;
 				br[i] = -1;
 			}
-
+			updated = true;
 			break;
 
 		case 'c': // K-val
@@ -282,30 +282,37 @@ void process(char *dat, int len)
 			if (floatVal > 1.0)
 				K = 1.0;
 			K = floatVal;
+			updated = true;		
 			break;
 
 		case 'd': // Misvisning
 			MISVISNING = floatVal;
+			updated = true;
 			break;
 
 		case 'e': // Radius til waypoint
 			r = floatVal;
+			updated = true;
 			break;
 
 		case 'f': // P værdi til styring
 			P = floatVal;
+			updated = true;
 			break;
 
 		case 'g': // I værdi til styring
 			I = floatVal;
+			updated = true;
 			break;
 
 		case 'h': // D værdi til styring
 			D = floatVal;
+			updated = true;
 			break;
 
 		case 'i': // Ror kalibrering
 			ROR_KALIB = floatVal;
+			updated = true;
 			break;
 		case 'j'://Speed auto
 			char fstr[16];
@@ -322,10 +329,12 @@ void process(char *dat, int len)
 				delay(5);
 				Udp.write(fstr);
 			Udp.endPacket();
+			updated = true;
 		break;
 
 		default:
 			Serial.println("FEJL i modtagelse");
+			updated = false;
 			break;
 		}
 	}
@@ -333,7 +342,7 @@ void process(char *dat, int len)
 
 /* ** FUNKTIONER ** FUNKTIONER ** FUNKTIONER ** FUNKTIONER ** */
 
-void sendPing()
+void sendEkko()//til bekræftigelse af modtaget v
 {
 	if (charVal == 'a')
 	{
@@ -342,7 +351,7 @@ void sendPing()
 		{
 			// Serial.printf("lg[i]%10f br[i]%10f", i, lg[i], i, br[i]);
 			sprintf(buffer, "pin,%c(%i)%11f:%11f", charVal, i, lg[i], br[i]);
-			Udp.beginPacket("192.168.137.1", 8083); // 192.168.137.1:8083
+			Udp.beginPacket("192.168.137.1", 8083); // 192.168.137.1:8083 - mobilt hotspot
 			Udp.write(buffer);
 			Udp.endPacket();
 			delay(20);
@@ -352,7 +361,7 @@ void sendPing()
 	{
 		char buffer[20];
 		sprintf(buffer, "pin,%c%8f", charVal, floatVal);
-		Udp.beginPacket("192.168.137.1", 8083); // 192.168.137.1:8083
+		Udp.beginPacket("192.168.137.1", 8083); // 192.168.137.1:8083 - mobilt hotspot
 		Udp.write(buffer);
 		Udp.endPacket();
 	}
@@ -508,15 +517,20 @@ bool sendRorUdlaeg()
 	float sp_kurs = atan2(afvigning, br_forandring) * 180 / PI;
 	float afstandWP = sqrt(br_forandring * br_forandring + afvigning * afvigning) * 60 * 1852;
 
-	float xte = 0;
-	if (activeWP > 0)
-	{ // sejler på et ben
-		int affWP = activeWP - 1;
-		float br_forandring1 = br[activeWP] - br[affWP];
-	}
+	/*Beregner X-Track Error - kun påbegyndt*/
+	// float xte = 0;
+	// if (activeWP > 0)
+	// { // sejler på et ben
+	// 	int affWP = activeWP - 1;
+	// 	float br_forandring1 = br[activeWP] - br[affWP];
+	// }
 
+	/* opdaterer aktivt WayPoint*/
 	if (afstandWP < r)
 	{
+		//TO DO 
+		//	tilføj en betingelse: if(afstand til waypoint er blevet mindre){ så vent lidt}
+		// 	eller se på COG/kurs og SOG og prædikter TCPA = time stamp før vi skifter WP
 		activeWP++;
 		if (activeWP > 9)
 			activeWP = 0; // starter forfra vers 1
@@ -578,7 +592,7 @@ bool sendRorUdlaeg()
 	char cstr[16];
 	sprintf(cstr, "a%d", num); // gps.course.isValid() ? gps.course.deg() : NAN,gps.speed.isValid() ? gps.speed.kmph() : NAN);
 	 // sender til ESP-lokal (static IP)
-    Udp.beginPacket("192.168.4.123", PORT);
+    Udp.beginPacket("192.168.4.123", PORT);//192.168.4.123 ESP lokalnet
     Udp.write(cstr);
     Udp.endPacket();
 	sendRorData(num, afstandWP, sp_kurs, ror);
@@ -653,6 +667,18 @@ void sendGPSdata(TinyGPSPlus gps)
 		Udp.beginPacket("192.168.137.1", 8082);
 		Udp.write(buffer);
 		Udp.endPacket();
+		// Udp.beginPacket("192.168.4.123", 8081);//192.168.4.123 ESP lokalnet , port til skib 1
+		// Udp.write(buffer);
+		// Udp.endPacket();
+		// Udp.beginPacket("192.168.4.123", 8082);//192.168.4.123 ESP lokalnet , port til skib 2
+		// Udp.write(buffer);
+		// Udp.endPacket();
+		// Udp.beginPacket("192.168.4.123", 8083);//192.168.4.123 ESP lokalnet , port til skib 3
+		// Udp.write(buffer);
+		// Udp.endPacket();
+		// Udp.beginPacket("192.168.4.123", 8084);//192.168.4.123 ESP lokalnet , port til skib 4
+		// Udp.write(buffer);
+		// Udp.endPacket();
 	}
 }
 ////////////////////// WiFi + websoket2 //////////////////////////
