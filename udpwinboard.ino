@@ -526,6 +526,7 @@ bool sendRorUdlaeg()
 
 	float xte = 0;/* X-Track Error */
 	int affWP = -1;
+	float lookAheadVinkel = 0;
 	if (antalWP > 1)// mindst 2 stk. WP - sejler på et ben 
 	{ 
 		affWP = activeWP - 1;
@@ -538,8 +539,16 @@ bool sendRorUdlaeg()
 		float sp_kurs1 = atan2(afvigning1, br_forandring1) * 180 / PI;//kurs mellem wp i grader
 		
 		xte = (float)(sin((sp_kurs-sp_kurs1) /180  * PI)*dtg);// pos ' BB' for kurslinien neg 'styrbord' for kurslinjen
-
-
+		float dtg1 = (float)(cos((sp_kurs-sp_kurs1) /180  * PI)*dtg);
+		if (dtg1-r > 0) //sejler ikke forbi WP1
+		{
+			lookAheadVinkel = -sp_kurs + sp_kurs1 + atan2(xte,r)*180/PI;
+		/*FORKLARING:
+			1. -sp_kurs:     fjerner sp_kurs
+		 	2.	sp_kurs1 + fabs(xte)/xte*90:	 sejler vinkelret til kurslinie
+			3.  atan2(xte,r)*180/PI : drejer i retn af WP1
+		*/
+		}
 		// Pos a_v={(lgGps - posi[affWP].lg) * cos(brGps * PI / 180)*60*1852, (brGps - posi[affWP].br)*60*1852};
 		// Pos b_v={(posi[activeWP].lg - posi[affWP].lg) * cos(brGps * PI / 180)*60*1852,(posi[activeWP].br - posi[affWP].br)*60*1852};
 		// float dst1 = (float)(cos((sp_kurs-sp_kurs1) /180  * PI)*dtg);//neg dist to go => sejlet for langt
@@ -575,11 +584,8 @@ bool sendRorUdlaeg()
 			activeWP = 0; // starter forfra vers 2
 	}
 
-	float e = sp_kurs + atan2(xte,r)*180/PI - (kurs + MISVISNING);
-	/* Hvis
-		 xte = 0 => atan2(xte,r) = 0
-		 xte = +r => atan2(xte,r) = +PI/4 grader EKS r=5: atan2(xte,r) = PI/4
-	*/
+	float e = sp_kurs + lookAheadVinkel - (kurs + MISVISNING);
+	
 	while (e > 180)
 	{
 		e = e - 360;
@@ -685,7 +691,8 @@ void sendBNOdata()
 			(dt * 1000),
 			kalibVal,
 			formatKurs(kursRaw + MISVISNING, 10),
-			formatKurs(kursGyroStabiliseret + MISVISNING, 10), ESP.getFreeHeap());
+			formatKurs(kursGyroStabiliseret + MISVISNING, 10), 
+			ESP.getFreeHeap());
 	// client.send(buffer);
 	Udp.beginPacket("192.168.137.1", 8081);
 	Udp.write(buffer);
