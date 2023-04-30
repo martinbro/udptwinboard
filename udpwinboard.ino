@@ -518,30 +518,52 @@ bool sendRorUdlaeg()
 	//  float dE += -sin(-kurs*PI/180)*cos(brGps)*dt;
 	//  Serial.print("Bestik: "); Serial.print(dN); Serial.print(", "); Serial.println(dE);
 
-	float br_forandring = posi[activeWP].br - brGps;
 	float afvigning = (posi[activeWP].lg - lgGps) * cos(brGps * PI / 180); // bruger bredde i stedet for middelbredde
-
+	float br_forandring = posi[activeWP].br - brGps;
+	
 	float sp_kurs = atan2(afvigning, br_forandring) * 180 / PI;
-	float afstandWP = sqrt(br_forandring * br_forandring + afvigning * afvigning) * 60 * 1852;
+	float dtg = sqrt(br_forandring * br_forandring + afvigning * afvigning) * 60 * 1852;//dist to go
 
-	/*Beregner X-Track Error */
-	float xte = -1;
+	float xte = 0;/* X-Track Error */
 	int affWP = -1;
-	if (antalWP > 0)// sejler på et ben
-
+	if (antalWP > 1)// mindst 2 stk. WP - sejler på et ben 
 	{ 
 		affWP = activeWP - 1;
 		if (affWP<0) { // retter for negative waypoint-numre
-			affWP = antalWP; 
+			affWP = antalWP-1; 
 		}
-		float br_forandring1 = posi[activeWP].br - posi[affWP].br;
+		//beregner kurslinjen mellem wp´s
 		float afvigning1 = (posi[activeWP].lg - posi[affWP].lg) * cos(brGps * PI / 180); // bruger bredde i stedet for middelbredde;
-		float sp_kurs1 = atan2(afvigning1, br_forandring1) * 180 / PI;
-		xte = tan((sp_kurs-sp_kurs1) /180  * PI)*afstandWP;
+		float br_forandring1 = posi[activeWP].br - posi[affWP].br;
+		float sp_kurs1 = atan2(afvigning1, br_forandring1) * 180 / PI;//kurs mellem wp i grader
+		
+		xte = (float)(sin((sp_kurs-sp_kurs1) /180  * PI)*dtg);// pos ' BB' for kurslinien neg 'styrbord' for kurslinjen
+
+
+		// Pos a_v={(lgGps - posi[affWP].lg) * cos(brGps * PI / 180)*60*1852, (brGps - posi[affWP].br)*60*1852};
+		// Pos b_v={(posi[activeWP].lg - posi[affWP].lg) * cos(brGps * PI / 180)*60*1852,(posi[activeWP].br - posi[affWP].br)*60*1852};
+		// float dst1 = (float)(cos((sp_kurs-sp_kurs1) /180  * PI)*dtg);//neg dist to go => sejlet for langt
+		// float b_vDist2 = b_v.lg*b_v.lg+b_v.br*b_v.br;//pytte
+		// float b_vDist = sqrt(b_vDist2);//pytte
+		// float procentdelen ={(a_v.lg*b_v.lg+a_v.br*b_v.br)/b_vDist2};//
+		// Pos c_v ={b_v.lg*procentdelen + 5/b_vDist*b_v.lg-a_v.lg,b_v.br*procentdelen+5/b_vDist*b_v.br-a_v.br};
+		// Pos c_v ={procentdelen*b_v.lg, procentdelen*b_v.br};
+		// Pos xte_v ={c_v.lg-a_v.lg, c_v.br-a_v.br};
+		// xte = sqrt(xte_v.lg*xte_v.lg+xte_v.br*xte_v.br);
+		// float procentdelenD = min(procentdelen + 2/b_vDist,(float)1.0);
+		// Pos d_v ={procentdelenD*b_v.lg, procentdelenD*b_v.br};
+		// Pos d_v ={c_v.lg + 2*b_v.lg/b_vDist,c_v.br+2*b_v.br/b_vDist};
+		//Forholdsregning
+		// float lookAbr = posi[activeWP].br - br_forandring1 * (sqrt(dst1)-2)/sqrt(dst1);// LOOK AHEAD PÅ 2 METER *************************************
+		// float lookAlg = posi[activeWP].lg - (posi[activeWP].lg - posi[affWP].lg) * (sqrt(dist)-2)/sqrt(dst1);
+		// //genberegning
+		// float br_forandring_lookA = posi[activeWP].br - brGps;
+		// float afvigning_lookA = (posi[activeWP].lg - lgGps) * cos(brGps * PI / 180); // bruger bredde i stedet for middelbredde
+		// sp_kurs_lookA = atan2(d_v.lg-a_v.lg, d_v.br-a_v.br) * 180 / PI;
 	}
 
 	/* opdaterer aktivt WayPoint*/
-	if (afstandWP < r)
+	if (dtg < r)
 	{
 		//TO DO 
 		//	tilføj en betingelse: if(afstand til waypoint er blevet mindre){ så vent lidt}
@@ -553,7 +575,11 @@ bool sendRorUdlaeg()
 			activeWP = 0; // starter forfra vers 2
 	}
 
-	float e = sp_kurs - (kurs + MISVISNING);
+	float e = sp_kurs + atan2(xte,r)*180/PI - (kurs + MISVISNING);
+	/* Hvis
+		 xte = 0 => atan2(xte,r) = 0
+		 xte = +r => atan2(xte,r) = +PI/4 grader EKS r=5: atan2(xte,r) = PI/4
+	*/
 	while (e > 180)
 	{
 		e = e - 360;
@@ -610,21 +636,22 @@ bool sendRorUdlaeg()
     Udp.beginPacket("192.168.4.123", PORT);//192.168.4.123 ESP lokalnet
     Udp.write(cstr);
     Udp.endPacket();
-	sendRorData(num, afstandWP, sp_kurs, ror,xte);
+	sendRorData(num, dtg, sp_kurs, ror,xte);
 
 	return true;
 }
 
-void sendRorData(int num, float afstandWP, float sp_kurs, float ror,float xte)
+void sendRorData(int num, float dtg, float sp_kurs, float ror,float xte)
 {
-	char buffer[40];
-	sprintf(buffer, "udl,%d,%5.1f,%d,%4.2f,%2.1f,%5.1f",
+	char buffer[64];
+	sprintf(buffer, "udl,%d,%5.1f,%d,%4.2f,%2.1f,%f,%i",
 			num,
-			afstandWP,
+			dtg,
 			activeWP,
 			sp_kurs,
 			ror,
-			xte);
+			xte,
+			17);
 	// client.send(buffer);
 	Udp.beginPacket("192.168.137.1", 8084);
 	Udp.write(buffer);
@@ -649,7 +676,7 @@ float formatKurs(float tal, int precision)
 void sendBNOdata()
 {
 	// værdier sendes som semikolonsepereret streng - csv-stil
-	char buffer[60];
+	char buffer[64];
 	sprintf(buffer, "bno,%0.1f,%0.2f,%0.2f,%0.1f,%d,%0.1f,%0.1f,%d",
 			//		buffer,"bno,360.0,-180.12,-180.12"
 			formatKurs(kurs + MISVISNING, 10),
