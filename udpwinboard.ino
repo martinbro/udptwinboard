@@ -45,11 +45,11 @@ IPAddress subnet(255, 255, 255, 0);
 
 // uint16_t PORT = 4110 ;//SKIB1
 // uint16_t PORT = 4210 ;//SKIB2
-//uint16_t PORT = 4310 ;//SKIB3
-uint16_t PORT = 4410 ;//SKIB4
+uint16_t PORT = 4310 ;//SKIB3
+// uint16_t PORT = 4410 ;//SKIB4
 
 // Station
-const char *ssid_sta = "SKIB4";
+const char *ssid_sta = "SKIB3";
 const char *password_sta = "marnavfablab";
 unsigned int localUdpPort = 8081;					  // local port
 char incomingPacket[255];							  // buffer for incoming packets
