@@ -45,11 +45,11 @@ IPAddress subnet(255, 255, 255, 0);
 
 // uint16_t PORT = 4110 ;//SKIB1
 // uint16_t PORT = 4210 ;//SKIB2
-uint16_t PORT = 4310 ;//SKIB3
-// uint16_t PORT = 4410 ;//SKIB4
+// uint16_t PORT = 4310 ;//SKIB3
+uint16_t PORT = 4410 ;//SKIB4
 
 // Station
-const char *ssid_sta = "SKIB3";
+const char *ssid_sta = "SKIB4";
 const char *password_sta = "marnavfablab";
 unsigned int localUdpPort = 8081;					  // local port
 char incomingPacket[255];							  // buffer for incoming packets
@@ -111,6 +111,7 @@ float P = 1;
 float I = 0;
 float D = 0;
 int ROR_KALIB = 90; // neutral rorudlæg
+float LOOK_AHEAD_DISTANCE = 10.0;
 
 /* Initialiserer moduler ******************************************* */
 
@@ -336,7 +337,11 @@ void process(char *dat, int len)
 				Udp.write(fstr);
 			Udp.endPacket();
 			updated = true;
-		break;
+		    break;
+		case 'k'://look ahead dist
+            LOOK_AHEAD_DISTANCE = floatVal;
+            updated = true;
+		    break;
 
 		default:
 			Serial.println("FEJL i modtagelse");
@@ -540,15 +545,17 @@ bool sendRorUdlaeg()
 		
 		xte = (float)(sin((sp_kurs-sp_kurs1) /180  * PI)*dtg);// pos ' BB' for kurslinien neg 'styrbord' for kurslinjen
 		float dtg1 = (float)(cos((sp_kurs-sp_kurs1) /180  * PI)*dtg);
-		if (dtg1-r > 0) //sejler ikke forbi WP1
+        
+		if (dtg1-LOOK_AHEAD_DISTANCE > 0) //sejler ikke forbi WP1
 		{
-			lookAheadVinkel = -sp_kurs + sp_kurs1 + atan2(xte,r)*180/PI;
+			lookAheadVinkel = -sp_kurs + sp_kurs1 + atan2(xte,LOOK_AHEAD_DISTANCE)*180/PI;
 		/*FORKLARING:
 			1. -sp_kurs:     fjerner sp_kurs
 		 	2.	sp_kurs1 + fabs(xte)/xte*90:	 sejler vinkelret til kurslinie
 			3.  atan2(xte,r)*180/PI : drejer i retn af WP1
 		*/
 		}
+        
 		// Pos a_v={(lgGps - posi[affWP].lg) * cos(brGps * PI / 180)*60*1852, (brGps - posi[affWP].br)*60*1852};
 		// Pos b_v={(posi[activeWP].lg - posi[affWP].lg) * cos(brGps * PI / 180)*60*1852,(posi[activeWP].br - posi[affWP].br)*60*1852};
 		// float dst1 = (float)(cos((sp_kurs-sp_kurs1) /180  * PI)*dtg);//neg dist to go => sejlet for langt
